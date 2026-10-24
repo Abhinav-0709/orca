@@ -31,8 +31,8 @@ important decisions and changes.
 
 # Project State
 
-**Current Phase:** Phase 5 --- Commander & ACP\
-**Status:** NOT STARTED
+**Current Phase:** Phase 6 --- Decision Engine\
+**Status:** IN PROGRESS
 
 ## Overall Progress
 
@@ -42,7 +42,7 @@ Phase 1  Marine Data Layer       [X]
 Phase 2  Geospatial Safety       [X]
 Phase 3  Specialist Agents       [X]
 Phase 4  Evidence & Reliability  [X]
-Phase 5  Commander & ACP         [ ]
+Phase 5  Commander & ACP         [X]
 Phase 6  Decision Engine         [ ]
 Phase 7  ASI:One Integration     [ ]
 Phase 8  What-If / Cards         [ ]
@@ -554,49 +554,83 @@ Phase 5 --- Commander & ACP
 
 # Phase 5 --- Commander & ACP
 
-**Status:** NOT STARTED
+**Status:** COMPLETE
 
 ## Goal
 
-Turn the specialist agents into a real multi-agent workflow.
+Turn the specialist agents into a real multi-agent workflow coordinated by the ORCA Commander using the Agent Chat Protocol (ACP).
 
 ## Planned
 
--   natural-language intent extraction
--   structured mission
--   Commander
--   ACP communication
--   capability routing
--   response aggregation
+- natural-language intent extraction
+- structured mission creation
+- Commander entry agent
+- ACP communication router & envelopes
+- specialist capability selection
+- multi-agent response aggregation
 
 ## Completion
 
-A single user request triggers a real multi-agent workflow through the
-Fetch ecosystem.
+A single user request triggers a real multi-agent workflow through the Fetch ecosystem.
 
 ## Implemented
 
-*To be updated.*
+- Built `IntentExtractor` (`orca/orchestration/intent_extractor.py`):
+  - Parses natural-language user queries into strongly-validated `StructuredMission` objects.
+  - Resolves 20+ primary coastal landmarks and fishing harbours (Chennai, Kasimedu, Ennore, Mahabalipuram, Cuddalore, Nagapattinam, Rameswaram, Tuticorin, Kanyakumari, Kochi, Visakhapatnam, etc.) and explicit lat/lon coordinates.
+  - Extracts operational distance limits (`max_distance_km`), operational time horizons (morning, afternoon, tomorrow, explicit time), activities, and constraints.
+  - Implements targeted clarification prompt generation when origin is missing or ambiguous.
+- Built `ACPRouter` & `ACPMessage` (`orca/orchestration/acp.py`):
+  - Standardized ACP message envelopes (`message_id`, `protocol`, `source`, `destination`, `message_type`, `request_id`, `payload`, `timestamp`).
+  - Implements async message dispatching with configurable timeouts, agent registration, error wrapping, and timeout recovery.
+- Built `CommanderAgent` & `CommanderWorkflowResult` (`orca/agents/commander/agent.py`):
+  - Entry agent orchestrating the multi-agent pipeline over ACP.
+  - Dispatches to Ocean Agent (opportunity/PFZ), Maritime Safety Agent (boundaries/buffers), Weather Agent (Open-Meteo waves/wind/currents & IMD bulletins), and Evidence & Reliability Agent (provenance, freshness, conflicts, confidence).
+  - Merges specialist findings into composite `CandidateZone` records with opportunity, weather safety, maritime clearance, and accessibility ratings.
+  - Returns `CommanderWorkflowResult` ready for the Decision Engine.
+- Added comprehensive Phase 5 test suites (11 tests, 69/69 passing across all phases):
+  - `tests/test_intent_extractor.py`: 4 tests (Chennai queries, Kasimedu landing centers, explicit coordinates, clarification prompt generation).
+  - `tests/test_acp.py`: 4 tests (successful dispatch, timeout handling, unregistered destinations, exception recovery).
+  - `tests/test_commander.py`: 3 tests (end-to-end natural language query orchestration, pre-structured mission execution, clarification handling on vague queries).
 
 ## Files Changed
 
-*To be updated.*
+- `orca/orchestration/__init__.py`
+- `orca/orchestration/intent_extractor.py`
+- `orca/orchestration/acp.py`
+- `orca/agents/commander/__init__.py`
+- `orca/agents/commander/agent.py`
+- `orca/agents/__init__.py`
+- `tests/test_intent_extractor.py`
+- `tests/test_acp.py`
+- `tests/test_commander.py`
+- `docs/ORCA_Phases.md`
 
 ## Tests
 
-*To be updated.*
+- 69/69 tests passed via `./.venv/Scripts/pytest.exe`:
+  - `tests/test_intent_extractor.py`: 4 passed
+  - `tests/test_acp.py`: 4 passed
+  - `tests/test_commander.py`: 3 passed
+  - Phase 0-4 suites: 58 passed
 
 ## Decisions
 
-*To be updated.*
+- **Deterministic Fallback Intent Parsing**: Built regex and entity extraction for Indian coastal geography into `IntentExtractor` ensuring immediate, offline, zero-network reproducibility for all tests and demos, with optional LLM integration.
+- **Envelope-Based ACP Dispatch**: Designed `ACPRouter` to mirror Fetch Agent Chat Protocol semantics with strict timeout boundaries, ensuring specialist failures or timeouts are safely wrapped into structured `AgentResponse` objects without unhandled exceptions crashing the Commander.
+- **Unified Multi-Agent Aggregation**: Implemented candidate merging inside the Commander so that opportunities identified by Ocean Agent are immediately checked against Maritime safety polygons and Weather marine thresholds before final reliability scoring.
 
 ## Problems / Blockers
 
-*To be updated.*
+- Resolved validation error when mission is omitted during clarification; made `mission` field optional in `CommanderWorkflowResult` so clarification workflows return cleanly.
 
 ## Changes From Plan
 
-*To be updated.*
+- None.
+
+## Current System State
+
+Multi-agent coordination is operational. A natural-language query triggers genuine ACP communication across the Ocean, Maritime Safety, Weather, and Evidence specialist agents, producing unified candidate evaluations and evidence assessments.
 
 ## Next Phase
 
