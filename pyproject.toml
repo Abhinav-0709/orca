@@ -1,0 +1,33 @@
+[project]
+name = "orca"
+version = "0.1.0"
+description = "ORCA - Ocean Reasoning & Coordination Agent (Fetch-A-Thon 3.0)"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    { name = "ORCA Team" }
+]
+dependencies = [
+    "pydantic>=2.6.0",
+    "pydantic-settings>=2.2.0",
+    "python-dotenv>=1.0.1",
+    "httpx>=0.27.0",
+    "shapely>=2.0.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.1.0",
+    "pytest-asyncio>=0.23.5",
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra -q"
+asyncio_mode = "auto"

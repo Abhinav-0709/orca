@@ -1,0 +1,91 @@
+"""Configuration settings for ORCA."""
+
+from typing import Literal
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """ORCA runtime settings loaded from environment or .env file."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+    # General Environment
+    orca_env: Literal["development", "testing", "production"] = Field(
+        default="development",
+        description="Operating environment stage",
+    )
+    orca_log_level: str = Field(
+        default="INFO",
+        description="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
+    )
+
+    # Operational Data Sources
+    incois_base_url: str = Field(
+        default="https://www.incois.gov.in",
+        description="INCOIS portal / API base URL",
+    )
+    imd_api_base_url: str = Field(
+        default="https://api.imd.gov.in",
+        description="IMD API base URL",
+    )
+    imd_api_key: str | None = Field(
+        default=None,
+        description="IMD API access key",
+    )
+
+    # Fetch Ecosystem / Agentverse
+    agentverse_api_key: str | None = Field(
+        default=None,
+        description="Agentverse API key for registration & discovery",
+    )
+    agentverse_mailbox_key: str | None = Field(
+        default=None,
+        description="Agentverse Mailbox key for remote communication",
+    )
+    acp_endpoint: str | None = Field(
+        default=None,
+        description="Agent Chat Protocol endpoint",
+    )
+
+    # LLM / Reasoning Layer
+    llm_provider: str = Field(
+        default="asi1",
+        description="LLM provider (asi1, gemini, openai, etc.)",
+    )
+    llm_api_key: str | None = Field(
+        default=None,
+        description="API key for LLM provider",
+    )
+    llm_model: str = Field(
+        default="asi1-mini",
+        description="Default model name for intent and reasoning",
+    )
+
+    # Geospatial Settings
+    default_search_radius_km: float = Field(
+        default=30.0,
+        ge=1.0,
+        le=200.0,
+        description="Default candidate search radius in km",
+    )
+    max_search_radius_km: float = Field(
+        default=100.0,
+        ge=5.0,
+        le=300.0,
+        description="Maximum allowed search radius in km",
+    )
+    restricted_zone_buffer_km: float = Field(
+        default=5.0,
+        ge=0.0,
+        description="Safety buffer margin around restricted boundaries in km",
+    )
+
+
+# Global singleton instance
+settings = Settings()
