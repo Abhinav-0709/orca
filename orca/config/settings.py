@@ -30,9 +30,13 @@ class Settings(BaseSettings):
         default="https://www.incois.gov.in",
         description="INCOIS portal / API base URL",
     )
+    open_meteo_base_url: str = Field(
+        default="https://marine-api.open-meteo.com/v1/marine",
+        description="Open-Meteo Marine API base URL (no API key required)",
+    )
     imd_api_base_url: str = Field(
         default="https://api.imd.gov.in",
-        description="IMD API base URL",
+        description="IMD API base URL (optional bulletin source)",
     )
     imd_api_key: str | None = Field(
         default=None,

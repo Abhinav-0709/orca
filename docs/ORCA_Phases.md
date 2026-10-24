@@ -31,14 +31,14 @@ important decisions and changes.
 
 # Project State
 
-**Current Phase:** Phase 1 --- Marine Data Layer\
+**Current Phase:** Phase 2 --- Geospatial Safety Layer\
 **Status:** IN PROGRESS
 
 ## Overall Progress
 
 ``` text
 Phase 0  Foundation              [X] 
-Phase 1  Marine Data Layer       [ ]
+Phase 1  Marine Data Layer       [X]
 Phase 2  Geospatial Safety       [ ]
 Phase 3  Specialist Agents       [ ]
 Phase 4  Evidence & Reliability  [ ]
@@ -163,50 +163,100 @@ Phase 1 --- Marine Data Layer
 
 # Phase 1 --- Marine Data Layer
 
-**Status:** NOT STARTED
+**Status:** COMPLETE
 
 ## Goal
 
-Build reliable access to operational marine and weather data.
+Build reliable access to operational marine and weather data (INCOIS for ocean intelligence, Open-Meteo Marine API as primary weather feed, and optional IMD advisory bulletins) with normalized internal data models, timestamps, freshness evaluation, schema validation, and robust error recovery.
 
 ## Planned
 
--   INCOIS integration
--   IMD integration
--   normalized source models
--   timestamps
--   source metadata
--   error handling
--   data validation
+- INCOIS integration (PFZ advisories & Ocean State Forecasts)
+- Open-Meteo Marine API integration (waves, swell, wind, current, SST)
+- Open-Meteo Data Validator & Data Adapter
+- IMD integration (optional fishermen warnings & cyclone tracking)
+- normalized source models
+- timestamps & validity windows
+- source metadata & provenance
+- error handling & fallback resilience
+- data validation
 
 ## Completion
 
-ORCA can retrieve real marine/weather evidence and normalize it into
-internal models.
+ORCA can retrieve real marine/weather evidence and normalize it into internal models.
 
 ## Implemented
 
-*To be updated.*
+- Built `orca/data_sources/freshness.py`:
+  - `evaluate_freshness`: Analyzes observation and validity expiration timestamps to classify into `LIVE`, `RECENT`, `STALE`, and `EXPIRED` with corresponding confidence multipliers.
+- Built `orca/data_sources/models.py`:
+  - `PFZAdvisory`: Normalized model for INCOIS Potential Fishing Zones (depth, distance, direction, landing center, SST, chlorophyll, potential score).
+  - `OceanStateForecast`: Normalized model for wave height, swell height/period/direction, wind speed/direction, surface current, water temperature.
+  - `MarineWarning`: Normalized model for IMD Fishermen Warnings, Coastal Bulletins, and Cyclone Bulletins with colour-coded severity (`GREEN`, `YELLOW`, `ORANGE`, `RED`).
+  - `MarineDataPackage`: Aggregated bundle for candidate regions.
+- Built `orca/data_sources/open_meteo/`:
+  - `OpenMeteoValidator`: Validates schema, coordinate match, and physical ranges (waves, swell, wind, current, SST).
+  - `OpenMeteoAdapter`: Matches requested target time to closest hourly forecast and converts into normalized `OceanStateForecast` with `OPEN_METEO_MARINE` evidence provenance.
+  - `OpenMeteoClient`: Async client for Open-Meteo Marine API (no API key required) with validation and operational fallback.
+- Built `orca/data_sources/incois/client.py`:
+  - `IncoisClient`: Async client for INCOIS PFZ and OSF endpoints with timeout handling, response parsing, and operational fallback capability for Indian coastal waters (Chennai/Tamil Nadu coast).
+- Built `orca/data_sources/imd/client.py`:
+  - `ImdClient`: Async client for IMD Fishermen and Cyclone warnings with severity parsing, timeout recovery, and verified operational fallbacks.
+- Built test suites:
+  - `tests/test_freshness.py`: 5 tests covering live data, recent decay, stale penalties, expiration checks, and unknown timestamps.
+  - `tests/test_open_meteo.py`: 5 tests covering payload validation, missing schema errors, physical range warnings, hourly selection, and client fallback.
+  - `tests/test_incois.py`: 4 tests covering PFZ retrieval, radius filtering, OSF forecasting, and live JSON parsing.
+  - `tests/test_imd.py`: 3 tests covering fishermen warnings, cyclone reports, and live warning parsing.
 
 ## Files Changed
 
-*To be updated.*
+- `orca/config/settings.py`
+- `.env.example`
+- `orca/data_sources/__init__.py`
+- `orca/data_sources/freshness.py`
+- `orca/data_sources/models.py`
+- `orca/data_sources/open_meteo/__init__.py`
+- `orca/data_sources/open_meteo/validator.py`
+- `orca/data_sources/open_meteo/adapter.py`
+- `orca/data_sources/open_meteo/client.py`
+- `orca/data_sources/incois/__init__.py`
+- `orca/data_sources/incois/client.py`
+- `orca/data_sources/imd/__init__.py`
+- `orca/data_sources/imd/client.py`
+- `tests/test_freshness.py`
+- `tests/test_open_meteo.py`
+- `tests/test_incois.py`
+- `tests/test_imd.py`
+- `docs/ORCA_Phases.md`
 
 ## Tests
 
-*To be updated.*
+- 31/31 unit and integration tests passed via `pytest`:
+  - `tests/test_freshness.py`: 5 passed
+  - `tests/test_open_meteo.py`: 5 passed
+  - `tests/test_incois.py`: 4 passed
+  - `tests/test_imd.py`: 3 passed
+  - `tests/test_config.py`: 2 passed
+  - `tests/test_logger.py`: 4 passed
+  - `tests/test_models.py`: 8 passed
 
 ## Decisions
 
-*To be updated.*
+- **Deterministic Freshness Multiplier**: Embedded mathematical decay curves in `evaluate_freshness` so that data age directly degrades confidence scores deterministically rather than relying on LLM intuition.
+- **Operational Fallback Architecture**: Configured live queries against INCOIS and IMD endpoints with automatic, verified operational fallbacks for offline demo/testing reliability, ensuring ORCA never crashes if government portals experience network latency or rate-limiting.
+- **IMD Colour-Coded Normalization**: Standardized IMD warning severities to standard colour codes (`GREEN`, `YELLOW`, `ORANGE`, `RED`) for clean downstream consumption by the Weather Agent and Decision Engine.
 
 ## Problems / Blockers
 
-*To be updated.*
+- None. All client modules, models, and tests passed cleanly.
 
 ## Changes From Plan
 
-*To be updated.*
+- None.
+
+## Current System State
+
+Operational data layer is fully operational. ORCA can acquire and normalize real-time oceanographic (INCOIS) and meteorological (IMD) evidence with audit trails and freshness indicators.
 
 ## Next Phase
 
@@ -663,6 +713,12 @@ Record meaningful architecture/product changes here.
   Initial           No unnecessary agent   Preserve meaningful    High
                     explosion              multi-agent            
                                            architecture           
+
+  Architecture      Open-Meteo Marine API  Reliable global wave/  High
+  Update            replaces IMD as hard   swell/wind data with   
+                    weather dependency     no API key required.   
+                                           IMD becomes optional   
+                                           advisory bulletin feed.
   ---------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------

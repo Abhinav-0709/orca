@@ -3,17 +3,22 @@
 > **Fetch-A-Thon 3.0 — ASI:One Agent Challenge**  
 > *"Don't read the ocean. Ask it."*
 
-ORCA is a multi-agent marine decision-support system that turns fragmented marine data (INCOIS, IMD, maritime GIS boundaries) into explainable, risk-adjusted operational recommendations for coastal operators and fishermen.
+ORCA is a multi-agent marine decision-support system that turns fragmented marine data (INCOIS, Open-Meteo Marine API, optional IMD bulletins, and maritime GIS boundaries) into explainable, risk-adjusted operational recommendations for coastal operators and fishermen.
 
 ---
 
 ## 🌊 Core Philosophy
 
 - **Risk-Adjusted Decision-Making:** `Decision Quality = Opportunity × Safety × Accessibility × Data Confidence`. Safety strictly outranks opportunity.
+- **Primary Operational Data Sources:**
+  - **INCOIS:** Potential Fishing Zones (PFZ), SST, Chlorophyll.
+  - **Open-Meteo Marine API:** High-resolution wave height, swell (height/period/direction), wind waves, ocean currents, and sea temperature (no API key required).
+  - **Marine Regions / GIS:** Maritime boundaries, EEZ, and safety buffers.
+  - **IMD (Optional):** Official coastal squall, fishermen warnings, and cyclone bulletins.
 - **Strict Multi-Agent Separation:**
   - **ORCA Commander:** User intent conversion, structured mission creation, ACP orchestration, response synthesis.
   - **Ocean Intelligence Agent:** Marine productivity (INCOIS PFZ, SST, Chlorophyll).
-  - **Weather & Marine Forecast Agent:** Marine risk (wave height, swell, wind, IMD warnings, cyclone tracks).
+  - **Weather & Marine Forecast Agent:** Marine risk (wave height, swell, wind, current via Open-Meteo; advisory bulletins via IMD).
   - **Maritime Safety Agent:** Deterministic boundary, buffer, and restricted zone spatial analysis.
   - **Evidence & Reliability Agent:** Data provenance, freshness evaluation, conflict detection, quantifiable confidence.
   - **Decision & What-If Engine:** Traceable ranking and live recomputation upon constraint modification.
