@@ -31,17 +31,17 @@ important decisions and changes.
 
 # Project State
 
-**Current Phase:** Phase 2 --- Geospatial Safety Layer\
-**Status:** IN PROGRESS
+**Current Phase:** Phase 5 --- Commander & ACP\
+**Status:** NOT STARTED
 
 ## Overall Progress
 
 ``` text
 Phase 0  Foundation              [X] 
 Phase 1  Marine Data Layer       [X]
-Phase 2  Geospatial Safety       [ ]
-Phase 3  Specialist Agents       [ ]
-Phase 4  Evidence & Reliability  [ ]
+Phase 2  Geospatial Safety       [X]
+Phase 3  Specialist Agents       [X]
+Phase 4  Evidence & Reliability  [X]
 Phase 5  Commander & ACP         [ ]
 Phase 6  Decision Engine         [ ]
 Phase 7  ASI:One Integration     [ ]
@@ -266,7 +266,7 @@ Phase 2 --- Geospatial Safety Layer
 
 # Phase 2 --- Geospatial Safety Layer
 
-**Status:** NOT STARTED
+**Status:** COMPLETE
 
 ## Goal
 
@@ -288,27 +288,70 @@ configured geographic constraints.
 
 ## Implemented
 
-*To be updated.*
+- Built `orca/geospatial/math.py`:
+  - `haversine_distance`: Great-circle geodesic distance in kilometers on spherical Earth.
+  - `haversine_distance_nm`: Distance converted to nautical miles.
+  - `calculate_bearing`: Initial compass azimuth in degrees [0, 360).
+  - `destination_point`: Destination coordinate given origin point, bearing, and distance.
+  - `bounding_box`: Axis-aligned bounding box (southwest, northeast) for spatial filtering.
+- Built `orca/geospatial/models.py`:
+  - `ZoneType`: Categorical classification (`MARINE_PROTECTED_AREA`, `MILITARY_EXCLUSION_ZONE`, `SHIPPING_LANE`, `INTERNATIONAL_BOUNDARY`, `TERRITORIAL_WATERS`, `EEZ`, `PORT_APPROACH`).
+  - `RestrictionLevel`: Enforcement levels (`STRICT_NO_ENTRY`, `RESTRICTED_FISHING`, `CAUTION_TRAFFIC`, `BUFFER_PROXIMITY`, `ADVISORY`).
+  - `MaritimeZone`: Closed geometric polygon boundary with Shapely conversion, buffer perimeter, and metadata.
+  - `GeospatialSafetyResult`: Deterministic evaluation report including `is_safe`, `safety_status`, bearing, distance, violations, buffer warnings, traffic corridors, clearances, and explainable notes.
+- Built `orca/geospatial/datasets.py`:
+  - Default Indian coastal maritime zones:
+    1. Gulf of Mannar Marine National Park (Core strict no-entry MPA).
+    2. Pulicat Marine & Lagoon Sanctuary (Regulated fishing buffer).
+    3. Chennai & Kamarajar Port Traffic Separation Scheme (Commercial shipping fairway caution).
+    4. Indo-Sri Lanka IMBL Sensitive Border Corridor (Strict no-entry international boundary perimeter).
+    5. Offshore Naval Training & Firing Range (Defense exercise exclusion).
+  - `MaritimeBoundaryStore`: In-memory spatial index with polygon containment, buffer intersection, and nearest boundary clearance queries.
+- Built `orca/geospatial/safety_engine.py`:
+  - `GeospatialSafetyEngine`: Deterministic constraint evaluator checking range limits, polygon containment, buffer warnings, and candidate zone score discounts.
+- Built `tests/test_geospatial.py`:
+  - 13 comprehensive unit tests covering math, bearings, bounding boxes, Shapely polygon conversion, containment, range violations, shipping lane traffic warnings, and candidate zone enrichment.
 
 ## Files Changed
 
-*To be updated.*
+- `orca/geospatial/__init__.py`
+- `orca/geospatial/math.py`
+- `orca/geospatial/models.py`
+- `orca/geospatial/datasets.py`
+- `orca/geospatial/safety_engine.py`
+- `tests/test_geospatial.py`
+- `README.md`
+- `docs/ORCA_Phases.md`
 
 ## Tests
 
-*To be updated.*
+- 44/44 unit tests passed via `pytest`:
+  - `tests/test_geospatial.py`: 13 passed
+  - `tests/test_freshness.py`: 5 passed
+  - `tests/test_open_meteo.py`: 5 passed
+  - `tests/test_incois.py`: 4 passed
+  - `tests/test_imd.py`: 3 passed
+  - `tests/test_config.py`: 2 passed
+  - `tests/test_logger.py`: 4 passed
+  - `tests/test_models.py`: 8 passed
 
 ## Decisions
 
-*To be updated.*
+- **Strictly Deterministic Geometry**: Excluded LLMs entirely from spatial containment and proximity calculations. All boundary checks execute via Shapely polygons and Haversine math with sub-millisecond execution.
+- **Cartesian Coordinate Order in Shapely**: Enforced standard `(x=lon, y=lat)` coordinate mapping in `MaritimeZone.to_polygon()` to prevent latitude/longitude inversion bugs.
+- **Multi-Tiered Safety Classification**: Mapped geospatial evaluation to `SafetyEvaluation` (`SAFE`, `CAUTION`, `RESTRICTED`, `UNSAFE`) ensuring that severe territorial or MPA violations directly zero out candidate safety scores.
 
 ## Problems / Blockers
 
-*To be updated.*
+- None. Virtual environment `.venv` configured and all 44 unit tests passing cleanly.
 
 ## Changes From Plan
 
-*To be updated.*
+- None.
+
+## Current System State
+
+Geospatial safety layer is fully operational and deterministic. Candidates can be evaluated for boundary violations, shipping fairway interference, range constraints, and perimeter clearances.
 
 ## Next Phase
 
@@ -318,7 +361,7 @@ Phase 3 --- Specialist Agents
 
 # Phase 3 --- Specialist Agents
 
-**Status:** NOT STARTED
+**Status:** COMPLETE
 
 ## Goal
 
@@ -338,27 +381,66 @@ Each specialist can independently produce useful, testable evidence.
 
 ## Implemented
 
-*To be updated.*
+- Built `OceanAgent` (`orca/agents/ocean/agent.py`):
+  - Ingests `AgentRequest` with `StructuredMission` and queries INCOIS PFZ and Ocean State Forecast.
+  - Normalizes advisories into `CandidateZone` records with pelagic SST and Chlorophyll opportunity scoring.
+  - Generates `EvidenceItem` audit provenance for each source.
+  - Enforces the strict rule: evaluates opportunity only, leaving environmental and physical safety uncompromised.
+- Built `WeatherAgent` (`orca/agents/weather/agent.py`):
+  - Ingests `AgentRequest` with target operational window and coordinate list.
+  - Evaluates Open-Meteo marine conditions ($H_s$, swell period/height, wind speed, surface currents) and IMD bulletins (fishermen warnings, cyclone tracks).
+  - Computes deterministic weather safety score (0 - 100) and flags warnings for high wave state, high long-period swell surges, and IMD storm alerts.
+- Built `MaritimeSafetyAgent` (`orca/agents/maritime/agent.py`):
+  - Evaluates candidates against deterministic Shapely boundary polygons and buffer perimeters via `GeospatialSafetyEngine`.
+  - Penalizes prohibited/restricted MPA or border violations directly to 0 safety score.
+  - Flags `AgentWarning` for shipping lane fairways (TSS) and buffer clearances.
+- Exported all specialist agents cleanly through `orca/agents/__init__.py`.
+- Built comprehensive test suite (`tests/test_agents.py`) verifying domain outputs, fallback mechanisms, contract compliance, and violation penalties.
 
 ## Files Changed
 
-*To be updated.*
+- `orca/agents/__init__.py`
+- `orca/agents/ocean/__init__.py`
+- `orca/agents/ocean/agent.py`
+- `orca/agents/weather/__init__.py`
+- `orca/agents/weather/agent.py`
+- `orca/agents/maritime/__init__.py`
+- `orca/agents/maritime/agent.py`
+- `orca/data_sources/incois/client.py`
+- `tests/test_agents.py`
+- `README.md`
+- `docs/ORCA_Phases.md`
 
 ## Tests
 
-*To be updated.*
+- 49/49 unit and integration tests passed via `pytest`:
+  - `tests/test_agents.py`: 5 passed
+  - `tests/test_geospatial.py`: 13 passed
+  - `tests/test_freshness.py`: 5 passed
+  - `tests/test_open_meteo.py`: 5 passed
+  - `tests/test_incois.py`: 4 passed
+  - `tests/test_imd.py`: 3 passed
+  - `tests/test_config.py`: 2 passed
+  - `tests/test_logger.py`: 4 passed
+  - `tests/test_models.py`: 8 passed
 
 ## Decisions
 
-*To be updated.*
+- **Uniform Agent Envelope**: All specialist agents strictly consume `AgentRequest` and return `AgentResponse` with request ID propagation, structured data payloads, typed `EvidenceItem` trails, and advisory `AgentWarning` objects.
+- **Independence of Weather & Safety**: Ocean Agent never overrides or evaluates weather/safety. A zone with high fishing opportunity will still be penalized or rejected if the Weather Agent detects adverse sea states or the Maritime Safety Agent detects boundary violations.
+- **Multi-Level Exception Trapping & Fallback**: Network and parsing failures in specialist calls degrade gracefully with informative `AgentWarning` logs and verified operational fallbacks rather than terminating agent workflows.
 
 ## Problems / Blockers
 
-*To be updated.*
+- None. All 49 tests passing.
 
 ## Changes From Plan
 
-*To be updated.*
+- None.
+
+## Current System State
+
+Specialist agents for Ocean, Weather, and Maritime Safety are fully operational, testable, and producing typed evidence compliant with ACP contract standards.
 
 ## Next Phase
 
@@ -368,7 +450,7 @@ Phase 4 --- Evidence & Reliability
 
 # Phase 4 --- Evidence & Reliability
 
-**Status:** NOT STARTED
+**Status:** COMPLETE
 
 ## Goal
 
@@ -391,27 +473,78 @@ behaves safely.
 
 ## Implemented
 
-*To be updated.*
+- Built `EvidenceAgent` (`orca/agents/evidence/agent.py`):
+  - Accepts direct `EvidenceItem` records or typed/serialized specialist responses.
+  - Re-evaluates freshness and validates retrieval timestamps and geographic coverage.
+  - Detects missing required sources, stale/expired data, invalid payloads, and degraded specialist responses.
+  - Detects numeric and categorical conflicts from explicitly comparable observations.
+  - Produces deterministic source-quality, freshness, completeness, agreement, coverage, and overall confidence scores.
+  - Returns `SUCCESS`, `PARTIAL`, or `UNAVAILABLE` with structured warnings and retryable errors instead of inventing missing evidence.
+- Added `EvidenceConflict` and `EvidenceAssessment` models in `orca/models/evidence.py`.
+- Exported the Evidence Agent and reliability models through the package initializers.
+- Added `tests/test_evidence_agent.py` covering complete evidence, stale/missing sources, conflicts, and failed specialists.
+- Built bounded retry infrastructure in `orca/data_sources/retry.py`:
+  - Retries transient network errors and HTTP `408`, `425`, `429`, `500`, `502`, `503`, and `504` responses.
+  - Uses capped exponential backoff and re-raises the final failure for safe fallback handling.
+  - Wired INCOIS, IMD, and Open-Meteo clients to use the shared retry policy.
+- Added optional durable SQLite persistence in `orca/storage/evidence_store.py`:
+  - Stores normalized evidence and the latest reliability assessment by request ID.
+  - Uses idempotent evidence record hashes to avoid duplicate writes when a request is retried.
+  - Is enabled with `EVIDENCE_STORE_PATH`; leaving it empty keeps the runtime stateless.
+- Connected `EvidenceAgent` to the optional store and made persistence failures visible without hiding the live assessment.
 
 ## Files Changed
 
-*To be updated.*
+- `orca/agents/evidence/agent.py`
+- `orca/agents/evidence/__init__.py`
+- `orca/agents/__init__.py`
+- `orca/models/evidence.py`
+- `orca/models/__init__.py`
+- `tests/test_evidence_agent.py`
+- `orca/data_sources/retry.py`
+- `orca/data_sources/__init__.py`
+- `orca/data_sources/incois/client.py`
+- `orca/data_sources/imd/client.py`
+- `orca/data_sources/open_meteo/client.py`
+- `orca/config/settings.py`
+- `.env.example`
+- `orca/storage/__init__.py`
+- `orca/storage/evidence_store.py`
+- `tests/test_retry.py`
+- `tests/test_evidence_store.py`
+- `README.md`
+- `docs/ORCA_Phases.md`
 
 ## Tests
 
-*To be updated.*
+- 58/58 tests passed via `./.venv/Scripts/pytest.exe -q`:
+  - `tests/test_evidence_agent.py`: 5 passed
+  - `tests/test_retry.py`: 3 passed
+  - `tests/test_evidence_store.py`: 1 passed
+  - Existing Phase 0-3 suites: 49 passed
 
 ## Decisions
 
-*To be updated.*
+- **Evidence-first degradation**: Missing or failed sources reduce confidence and produce explicit warnings; they never become fabricated safe conditions.
+- **Deterministic confidence dimensions**: Confidence is calculated from source quality, freshness, completeness, agreement, and geographic coverage so the LLM can explain a number instead of inventing it.
+- **Explicit conflict inputs**: Conflicts are compared only when observations share a declared name/value contract or are attached under `details.observations`; unrelated fields are not guessed to be comparable.
+- **Specialist compatibility**: The Evidence Agent consumes the existing `AgentRequest`/`AgentResponse` envelope so it can be wired into the Commander in Phase 5 without changing specialist contracts.
+- **Bounded retries only**: Transient data-source failures are retried with capped exponential backoff; non-transient responses and final failures continue through the existing operational fallbacks.
+- **Portable persistence adapter**: SQLite is the dependency-free V1 evidence store. PostgreSQL/PostGIS can replace the adapter later without changing the Evidence Agent contract.
+- **Persistence is non-blocking**: A storage failure produces an explicit warning and a partial status, but does not discard a live reliability assessment.
 
 ## Problems / Blockers
 
-*To be updated.*
+- None for the Phase 4 scope.
 
 ## Changes From Plan
 
-*To be updated.*
+- Added a portable SQLite evidence store to provide durable audit records without adding a database dependency to the MVP.
+- Added shared retry/backoff behavior across all live marine data clients while preserving their existing operational fallbacks.
+
+## Current System State
+
+The three Phase 3 specialist agents and the Phase 4 Evidence Agent are operational. ORCA can review specialist evidence, identify stale/missing/conflicting inputs, retry transient live-source failures, degrade safely to verified fallbacks, and optionally persist auditable evidence by request ID.
 
 ## Next Phase
 

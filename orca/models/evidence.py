@@ -54,3 +54,34 @@ class EvidenceItem(BaseModel):
         default_factory=dict,
         description="Raw or normalized evidence payload",
     )
+
+
+class EvidenceConflict(BaseModel):
+    """Structured description of disagreeing observations from multiple sources."""
+
+    observation: str = Field(description="Canonical observation name being compared")
+    sources: list[str] = Field(description="Sources contributing the conflicting values")
+    values: list[Any] = Field(description="Observed values in source order")
+    tolerance: float = Field(default=0.0, ge=0.0, description="Allowed numeric disagreement")
+    message: str = Field(description="Human-readable explanation of the disagreement")
+
+
+class EvidenceAssessment(BaseModel):
+    """Deterministic reliability summary produced by the Evidence Agent."""
+
+    evidence_count: int = Field(default=0, ge=0)
+    valid_evidence_count: int = Field(default=0, ge=0)
+    complete: bool = Field(default=False)
+    source_quality_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    freshness_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    completeness_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    agreement_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    coverage_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    overall_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    missing_sources: list[str] = Field(default_factory=list)
+    missing_fields: list[str] = Field(default_factory=list)
+    stale_sources: list[str] = Field(default_factory=list)
+    invalid_sources: list[str] = Field(default_factory=list)
+    failed_agents: list[str] = Field(default_factory=list)
+    conflicts: list[EvidenceConflict] = Field(default_factory=list)
+    issues: list[str] = Field(default_factory=list)

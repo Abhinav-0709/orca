@@ -7,6 +7,7 @@ import httpx
 from orca.config.settings import settings
 from orca.data_sources.freshness import evaluate_freshness
 from orca.data_sources.models import OceanStateForecast, PFZAdvisory
+from orca.data_sources.retry import http_get_with_retry
 from orca.logging.logger import get_logger
 from orca.models.evidence import EvidenceItem
 from orca.models.mission import Coordinate
@@ -17,9 +18,27 @@ logger = get_logger(__name__, agent="incois_client")
 class IncoisClient:
     """Async client for INCOIS marine intelligence data feeds."""
 
-    def __init__(self, base_url: str | None = None, timeout_seconds: float = 8.0):
+    def __init__(
+        self,
+        base_url: str | None = None,
+        timeout_seconds: float = 8.0,
+        max_attempts: int | None = None,
+        retry_base_delay_seconds: float | None = None,
+        retry_max_delay_seconds: float | None = None,
+    ):
         self.base_url = (base_url or settings.incois_base_url).rstrip("/")
         self.timeout = timeout_seconds
+        self.max_attempts = max_attempts if max_attempts is not None else settings.data_source_max_attempts
+        self.retry_base_delay_seconds = (
+            retry_base_delay_seconds
+            if retry_base_delay_seconds is not None
+            else settings.data_source_retry_base_delay_seconds
+        )
+        self.retry_max_delay_seconds = (
+            retry_max_delay_seconds
+            if retry_max_delay_seconds is not None
+            else settings.data_source_retry_max_delay_seconds
+        )
 
     async def fetch_pfz_advisories(
         self,
@@ -46,8 +65,15 @@ class IncoisClient:
         endpoint = f"{self.base_url}/MarineFisheries/PfzAdvisory"
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                resp = await client.get(
+                resp = await http_get_with_retry(
+                    client,
                     endpoint,
+                    max_attempts=self.max_attempts,
+                    base_delay_seconds=self.retry_base_delay_seconds,
+                    max_delay_seconds=self.retry_max_delay_seconds,
+                    on_retry=lambda attempt, delay, exc: logger.warning(
+                        f"Retrying INCOIS PFZ request after attempt {attempt} in {delay:.2f}s: {exc}"
+                    ),
                     params={
                         "lat": center.lat,
                         "lon": center.lon,
@@ -60,8 +86,8 @@ class IncoisClient:
                     return self._parse_pfz_response(raw_data, now)
                 else:
                     logger.warning(f"INCOIS PFZ live query returned status {resp.status_code}. Using operational cache.")
-        except (httpx.RequestError, httpx.TimeoutException) as exc:
-            logger.warning(f"INCOIS PFZ network error ({type(exc).__name__}: {exc}). Using operational fallback.")
+        except (httpx.RequestError, httpx.TimeoutException, ValueError, Exception) as exc:
+            logger.warning(f"INCOIS PFZ query/parsing error ({type(exc).__name__}: {exc}). Using operational fallback.")
 
         # Fallback to operational cached advisories (Chennai/Tamil Nadu coastal zone)
         return self._get_operational_pfz_fallback(center, radius_km, now)
@@ -88,8 +114,15 @@ class IncoisClient:
         endpoint = f"{self.base_url}/oceanservices/osfforecast"
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                resp = await client.get(
+                resp = await http_get_with_retry(
+                    client,
                     endpoint,
+                    max_attempts=self.max_attempts,
+                    base_delay_seconds=self.retry_base_delay_seconds,
+                    max_delay_seconds=self.retry_max_delay_seconds,
+                    on_retry=lambda attempt, delay, exc: logger.warning(
+                        f"Retrying INCOIS OSF request after attempt {attempt} in {delay:.2f}s: {exc}"
+                    ),
                     params={
                         "lat": location.lat,
                         "lon": location.lon,
@@ -101,8 +134,8 @@ class IncoisClient:
                     return self._parse_osf_response(raw_data, location, valid_at)
                 else:
                     logger.warning(f"INCOIS OSF live query returned {resp.status_code}. Using operational cache.")
-        except (httpx.RequestError, httpx.TimeoutException) as exc:
-            logger.warning(f"INCOIS OSF network error ({type(exc).__name__}: {exc}). Using operational fallback.")
+        except (httpx.RequestError, httpx.TimeoutException, ValueError, Exception) as exc:
+            logger.warning(f"INCOIS OSF query/parsing error ({type(exc).__name__}: {exc}). Using operational fallback.")
 
         return self._get_operational_osf_fallback(location, valid_at)
 

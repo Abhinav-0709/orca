@@ -14,6 +14,7 @@ from orca.data_sources.models import (
 from orca.data_sources.open_meteo.adapter import OpenMeteoAdapter
 from orca.data_sources.open_meteo.client import OpenMeteoClient
 from orca.data_sources.open_meteo.validator import OpenMeteoValidator, ValidationResult
+from orca.data_sources.retry import RetryableHTTPStatusError, http_get_with_retry, retry_async
 
 __all__ = [
     "IncoisClient",
@@ -29,4 +30,7 @@ __all__ = [
     "WarningType",
     "MarineDataPackage",
     "evaluate_freshness",
+    "retry_async",
+    "http_get_with_retry",
+    "RetryableHTTPStatusError",
 ]

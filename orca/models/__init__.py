@@ -14,6 +14,8 @@ from orca.models.candidate import (
 )
 from orca.models.evidence import (
     DataFreshness,
+    EvidenceAssessment,
+    EvidenceConflict,
     EvidenceItem,
 )
 from orca.models.mission import (
@@ -28,6 +30,8 @@ __all__ = [
     "StructuredMission",
     "DataFreshness",
     "EvidenceItem",
+    "EvidenceConflict",
+    "EvidenceAssessment",
     "AgentStatus",
     "AgentError",
     "AgentWarning",
