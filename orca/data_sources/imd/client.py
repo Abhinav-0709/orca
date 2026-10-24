@@ -7,6 +7,7 @@ import httpx
 from orca.config.settings import settings
 from orca.data_sources.freshness import evaluate_freshness
 from orca.data_sources.models import MarineWarning, WarningSeverity, WarningType
+from orca.data_sources.retry import http_get_with_retry
 from orca.logging.logger import get_logger
 from orca.models.evidence import EvidenceItem
 from orca.models.mission import Coordinate
@@ -22,10 +23,24 @@ class ImdClient:
         base_url: str | None = None,
         api_key: str | None = None,
         timeout_seconds: float = 8.0,
+        max_attempts: int | None = None,
+        retry_base_delay_seconds: float | None = None,
+        retry_max_delay_seconds: float | None = None,
     ):
         self.base_url = (base_url or settings.imd_api_base_url).rstrip("/")
         self.api_key = api_key or settings.imd_api_key
         self.timeout = timeout_seconds
+        self.max_attempts = max_attempts if max_attempts is not None else settings.data_source_max_attempts
+        self.retry_base_delay_seconds = (
+            retry_base_delay_seconds
+            if retry_base_delay_seconds is not None
+            else settings.data_source_retry_base_delay_seconds
+        )
+        self.retry_max_delay_seconds = (
+            retry_max_delay_seconds
+            if retry_max_delay_seconds is not None
+            else settings.data_source_retry_max_delay_seconds
+        )
 
     async def fetch_fishermen_warnings(
         self,
@@ -51,8 +66,15 @@ class ImdClient:
 
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                resp = await client.get(
+                resp = await http_get_with_retry(
+                    client,
                     endpoint,
+                    max_attempts=self.max_attempts,
+                    base_delay_seconds=self.retry_base_delay_seconds,
+                    max_delay_seconds=self.retry_max_delay_seconds,
+                    on_retry=lambda attempt, delay, exc: logger.warning(
+                        f"Retrying IMD fishermen warning request after attempt {attempt} in {delay:.2f}s: {exc}"
+                    ),
                     params={"region": coast_region, "format": "json"},
                     headers=headers,
                 )
@@ -61,8 +83,8 @@ class ImdClient:
                     return self._parse_warnings_response(raw_data, WarningType.FISHERMEN_WARNING, now)
                 else:
                     logger.warning(f"IMD API returned status {resp.status_code}. Using operational fallback.")
-        except (httpx.RequestError, httpx.TimeoutException) as exc:
-            logger.warning(f"IMD network error ({type(exc).__name__}: {exc}). Using operational fallback.")
+        except Exception as exc:
+            logger.warning(f"IMD query/parsing error ({type(exc).__name__}: {exc}). Using operational fallback.")
 
         return self._get_operational_warnings_fallback(coast_region, now)
 
@@ -90,8 +112,15 @@ class ImdClient:
 
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                resp = await client.get(
+                resp = await http_get_with_retry(
+                    client,
                     endpoint,
+                    max_attempts=self.max_attempts,
+                    base_delay_seconds=self.retry_base_delay_seconds,
+                    max_delay_seconds=self.retry_max_delay_seconds,
+                    on_retry=lambda attempt, delay, exc: logger.warning(
+                        f"Retrying IMD cyclone request after attempt {attempt} in {delay:.2f}s: {exc}"
+                    ),
                     params={"basin": basin, "format": "json"},
                     headers=headers,
                 )
@@ -100,8 +129,8 @@ class ImdClient:
                     return self._parse_warnings_response(raw_data, WarningType.CYCLONE_ALERT, now)
                 else:
                     logger.warning(f"IMD Cyclone API returned status {resp.status_code}. Using operational fallback.")
-        except (httpx.RequestError, httpx.TimeoutException) as exc:
-            logger.warning(f"IMD Cyclone network error ({type(exc).__name__}: {exc}). Using operational fallback.")
+        except Exception as exc:
+            logger.warning(f"IMD cyclone query/parsing error ({type(exc).__name__}: {exc}). Using operational fallback.")
 
         return self._get_operational_cyclone_fallback(basin, now)
 

@@ -43,6 +43,30 @@ class Settings(BaseSettings):
         description="IMD API access key",
     )
 
+    # Reliability and local evidence persistence
+    data_source_max_attempts: int = Field(
+        default=3,
+        ge=1,
+        le=5,
+        description="Maximum attempts for transient live data-source failures",
+    )
+    data_source_retry_base_delay_seconds: float = Field(
+        default=0.25,
+        ge=0.0,
+        le=5.0,
+        description="Initial retry delay before exponential backoff",
+    )
+    data_source_retry_max_delay_seconds: float = Field(
+        default=2.0,
+        ge=0.0,
+        le=30.0,
+        description="Maximum delay between live data-source attempts",
+    )
+    evidence_store_path: str | None = Field(
+        default=None,
+        description="Optional SQLite path for durable evidence and assessments",
+    )
+
     # Fetch Ecosystem / Agentverse
     agentverse_api_key: str | None = Field(
         default=None,

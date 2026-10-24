@@ -93,4 +93,8 @@ orca/
 Development is managed in phased increments. See [ORCA_Phases.md](docs/ORCA_Phases.md) for the active status and decision log.
 
 - **Phase 0 — Project Foundation:** **COMPLETE** ✅
-- **Phase 1 — Marine Data Layer:** **NEXT** ⏳
+- **Phase 1 — Marine Data Layer:** **COMPLETE** ✅
+- **Phase 2 — Geospatial Safety Layer:** **COMPLETE** ✅
+- **Phase 3 — Specialist Agents:** **COMPLETE** ✅
+- **Phase 4 — Evidence & Reliability:** **COMPLETE** ✅
+- **Phase 5 — Commander & ACP:** **NEXT** ⏳

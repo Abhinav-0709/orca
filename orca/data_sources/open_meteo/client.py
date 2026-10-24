@@ -7,6 +7,7 @@ import httpx
 from orca.config.settings import settings
 from orca.data_sources.models import OceanStateForecast
 from orca.data_sources.open_meteo.adapter import OpenMeteoAdapter
+from orca.data_sources.retry import http_get_with_retry
 from orca.data_sources.open_meteo.validator import OpenMeteoValidator
 from orca.logging.logger import get_logger
 from orca.models.mission import Coordinate
@@ -32,9 +33,27 @@ class OpenMeteoClient:
         "sea_surface_temperature",
     ]
 
-    def __init__(self, base_url: str | None = None, timeout_seconds: float = 8.0):
+    def __init__(
+        self,
+        base_url: str | None = None,
+        timeout_seconds: float = 8.0,
+        max_attempts: int | None = None,
+        retry_base_delay_seconds: float | None = None,
+        retry_max_delay_seconds: float | None = None,
+    ):
         self.base_url = (base_url or settings.open_meteo_base_url).rstrip("/")
         self.timeout = timeout_seconds
+        self.max_attempts = max_attempts if max_attempts is not None else settings.data_source_max_attempts
+        self.retry_base_delay_seconds = (
+            retry_base_delay_seconds
+            if retry_base_delay_seconds is not None
+            else settings.data_source_retry_base_delay_seconds
+        )
+        self.retry_max_delay_seconds = (
+            retry_max_delay_seconds
+            if retry_max_delay_seconds is not None
+            else settings.data_source_retry_max_delay_seconds
+        )
 
     async def fetch_marine_forecast(
         self,
@@ -68,7 +87,17 @@ class OpenMeteoClient:
 
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                resp = await client.get(self.base_url, params=params)
+                resp = await http_get_with_retry(
+                    client,
+                    self.base_url,
+                    max_attempts=self.max_attempts,
+                    base_delay_seconds=self.retry_base_delay_seconds,
+                    max_delay_seconds=self.retry_max_delay_seconds,
+                    on_retry=lambda attempt, delay, exc: logger.warning(
+                        f"Retrying Open-Meteo request after attempt {attempt} in {delay:.2f}s: {exc}"
+                    ),
+                    params=params,
+                )
                 if resp.status_code == 200:
                     raw_data = resp.json()
                     # Run Data Validator
@@ -86,8 +115,8 @@ class OpenMeteoClient:
                         logger.error(f"Open-Meteo validation failed: {val_res.errors}. Falling back to operational cache.")
                 else:
                     logger.warning(f"Open-Meteo returned status {resp.status_code}. Using operational fallback.")
-        except (httpx.RequestError, httpx.TimeoutException) as exc:
-            logger.warning(f"Open-Meteo network error ({type(exc).__name__}: {exc}). Using operational fallback.")
+        except Exception as exc:
+            logger.warning(f"Open-Meteo query/parsing error ({type(exc).__name__}: {exc}). Using operational fallback.")
 
         # Verified fallback if offline or request fails
         return self._get_operational_fallback(location, target_time, now)

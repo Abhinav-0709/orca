@@ -12,6 +12,10 @@ def test_default_settings():
     assert cfg.restricted_zone_buffer_km == 5.0
     assert cfg.incois_base_url == "https://www.incois.gov.in"
     assert cfg.imd_api_base_url == "https://api.imd.gov.in"
+    assert cfg.data_source_max_attempts == 3
+    assert cfg.data_source_retry_base_delay_seconds == 0.25
+    assert cfg.data_source_retry_max_delay_seconds == 2.0
+    assert cfg.evidence_store_path is None
 
 
 def test_custom_environment_override():
