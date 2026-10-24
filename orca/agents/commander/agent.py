@@ -14,11 +14,13 @@ from orca.agents.ocean.agent import OceanAgent
 from orca.agents.weather.agent import WeatherAgent
 from orca.logging.logger import get_logger, set_request_id
 from orca.models.agent_contract import AgentRequest, AgentResponse, AgentStatus, AgentWarning
-from orca.models.candidate import CandidateZone, SafetyEvaluation
+from orca.decision.engine import DecisionEngine
+from orca.models.candidate import CandidateZone, DecisionOutput, SafetyEvaluation
 from orca.models.evidence import EvidenceAssessment, EvidenceItem
 from orca.models.mission import Coordinate, StructuredMission
 from orca.orchestration.acp import ACPRouter
 from orca.orchestration.intent_extractor import IntentExtractionResult, IntentExtractor
+from orca.orchestration.what_if import WhatIfComparison, WhatIfEngine
 
 logger = get_logger(__name__, agent="commander")
 
@@ -115,6 +117,66 @@ class CommanderAgent:
 
         # 2. Run orchestration on extracted mission
         return await self.execute_mission(intent_result.mission)
+
+    async def simulate_what_if(
+        self,
+        baseline_mission: StructuredMission,
+        what_if_query: str,
+        baseline_decision: DecisionOutput | None = None,
+        now: datetime | None = None,
+    ) -> WhatIfComparison:
+        """Simulate a what-if constraint modification, re-run multi-agent workflow, and compare outcomes.
+
+        Args:
+            baseline_mission: The original StructuredMission.
+            what_if_query: Natural language what-if scenario (e.g. 'What if I go 15 km farther?').
+            baseline_decision: Optional precomputed decision for baseline; computed if omitted.
+            now: Reference timestamp.
+
+        Returns:
+            WhatIfComparison: Full side-by-side comparative analysis of the decision recomputation.
+        """
+        # 1. Compute baseline decision if not passed
+        if baseline_decision is None:
+            base_wf = await self.execute_mission(baseline_mission)
+            baseline_decision = DecisionEngine.evaluate(
+                mission=baseline_mission,
+                candidates=base_wf.candidate_zones,
+                overall_confidence=base_wf.overall_confidence,
+                data_provenance=base_wf.all_evidence,
+            )
+
+        # 2. Parse modification into modified mission
+        modified_mission, modifications = WhatIfEngine.parse_modification(
+            baseline_mission=baseline_mission,
+            query=what_if_query,
+            now=now,
+        )
+
+        logger.info(
+            f"Commander recomputing What-If query '{what_if_query}': "
+            f"{len(modifications)} parameter modifications applied"
+        )
+
+        # 3. Re-run multi-agent orchestration on modified mission
+        new_wf = await self.execute_mission(modified_mission)
+
+        # 4. Re-run decision engine
+        new_decision = DecisionEngine.evaluate(
+            mission=modified_mission,
+            candidates=new_wf.candidate_zones,
+            overall_confidence=new_wf.overall_confidence,
+            data_provenance=new_wf.all_evidence,
+        )
+
+        # 5. Deterministically compare baseline and new outcome
+        return WhatIfEngine.compare(
+            baseline_mission=baseline_mission,
+            modified_mission=modified_mission,
+            baseline_decision=baseline_decision,
+            new_decision=new_decision,
+            modifications=modifications,
+        )
 
     async def execute_mission(self, mission: StructuredMission) -> CommanderWorkflowResult:
         """Run the full multi-agent orchestration workflow for a StructuredMission.

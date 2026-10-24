@@ -28,7 +28,13 @@ ENV/
 
 # Environment Variables
 .env
+.env.*
 !.env.example
+
+# Local Databases
+*.db
+*.sqlite
+*.sqlite3
 
 # IDE
 .vscode/

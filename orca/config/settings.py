@@ -1,7 +1,7 @@
 """Configuration settings for ORCA."""
 
-from typing import Literal
-from pydantic import Field
+from typing import Any, Literal
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -66,6 +66,21 @@ class Settings(BaseSettings):
         default=None,
         description="Optional SQLite path for durable evidence and assessments",
     )
+
+    @field_validator(
+        "evidence_store_path",
+        "imd_api_key",
+        "agentverse_api_key",
+        "agentverse_mailbox_key",
+        "acp_endpoint",
+        "llm_api_key",
+        mode="before",
+    )
+    @classmethod
+    def empty_str_to_none(cls, v: Any) -> Any:
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
 
     # Fetch Ecosystem / Agentverse
     agentverse_api_key: str | None = Field(

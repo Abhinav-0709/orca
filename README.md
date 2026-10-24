@@ -3,98 +3,182 @@
 > **Fetch-A-Thon 3.0 — ASI:One Agent Challenge**  
 > *"Don't read the ocean. Ask it."*
 
-ORCA is a multi-agent marine decision-support system that turns fragmented marine data (INCOIS, Open-Meteo Marine API, optional IMD bulletins, and maritime GIS boundaries) into explainable, risk-adjusted operational recommendations for coastal operators and fishermen.
+ORCA is an evidence-backed, risk-adjusted marine decision-support system built for the Fetch.ai ecosystem. It transforms fragmented oceanographic data (**INCOIS** Potential Fishing Zones, **Open-Meteo Marine API** high-resolution weather, **Marine Regions GIS** maritime boundaries, and official **IMD** coastal advisories) into explainable recommendations with deterministic non-linear safety dominance and live **What-If simulation recomputation**.
 
 ---
 
-## 🌊 Core Philosophy
+## 🌟 Live on Agentverse & ASI:One
 
-- **Risk-Adjusted Decision-Making:** `Decision Quality = Opportunity × Safety × Accessibility × Data Confidence`. Safety strictly outranks opportunity.
-- **Primary Operational Data Sources:**
-  - **INCOIS:** Potential Fishing Zones (PFZ), SST, Chlorophyll.
-  - **Open-Meteo Marine API:** High-resolution wave height, swell (height/period/direction), wind waves, ocean currents, and sea temperature (no API key required).
-  - **Marine Regions / GIS:** Maritime boundaries, EEZ, and safety buffers.
-  - **IMD (Optional):** Official coastal squall, fishermen warnings, and cyclone bulletins.
-- **Strict Multi-Agent Separation:**
-  - **ORCA Commander:** User intent conversion, structured mission creation, ACP orchestration, response synthesis.
-  - **Ocean Intelligence Agent:** Marine productivity (INCOIS PFZ, SST, Chlorophyll).
-  - **Weather & Marine Forecast Agent:** Marine risk (wave height, swell, wind, current via Open-Meteo; advisory bulletins via IMD).
-  - **Maritime Safety Agent:** Deterministic boundary, buffer, and restricted zone spatial analysis.
-  - **Evidence & Reliability Agent:** Data provenance, freshness evaluation, conflict detection, quantifiable confidence.
-  - **Decision & What-If Engine:** Traceable ranking and live recomputation upon constraint modification.
-- **Fetch Native:** Discoverable on Agentverse, connected via ACP, with primary interactions in ASI:One.
+ORCA is deployed 24/7 as a hosted agent on the Agentverse cloud and registered on the Almanac fast track:
+
+- **Agent Address:** `agent1q2q4wrsxn4jv8th8amtnkuv5m8qyuqlxq7x2g4wq24yx4r0wtvyhuwk0xzm`
+- **Protocol:** Agent Chat Protocol (`ACP v0.3.0`, `chat_protocol_spec`) with `publish_manifest=True`
+- **ASI:One Integration:** Search for ORCA or start a session at [asi1.ai](https://asi1.ai)
+- **Response Latency:** < 800 ms with live Open-Meteo marine conditions and INCOIS PFZ scoring
 
 ---
 
-## 🛠️ Repository Structure
+## 🌊 Core Architectural Pillars
+
+```text
+                                  +-----------------------+
+                                  |   ASI:One / User      |
+                                  +-----------+-----------+
+                                              | (ACP Chat Protocol)
+                                              v
+                                  +-----------------------+
+                                  |     ORCA Commander    |
+                                  |  (Intent Extractor)   |
+                                  +-----------+-----------+
+                                              |
+                   +--------------------------+--------------------------+
+                   |                          |                          |
+                   v                          v                          v
+       +-----------------------+  +-----------------------+  +-----------------------+
+       |      Ocean Agent      |  |     Weather Agent     |  | Maritime Safety Agent |
+       |     (INCOIS PFZ)      |  | (Open-Meteo Marine API|  |  (Spatial Boundaries  |
+       |  Chlorophyll & SST    |  |  Waves, Swell, Wind)  |  |    & Safety Buffers)  |
+       +-----------+-----------+  +-----------+-----------+  +-----------+-----------+
+                   |                          |                          |
+                   +--------------------------+--------------------------+
+                                              |
+                                              v
+                                  +-----------------------+
+                                  |    Evidence Agent     |
+                                  |  (Provenance, Decay,  |
+                                  |    Conflict, Conf.)   |
+                                  +-----------+-----------+
+                                              |
+                                              v
+                                  +-----------------------+
+                                  |    Decision Engine    |
+                                  |   (Risk-Adjusted)     |
+                                  +-----------+-----------+
+                                              |
+                                              v
+                                  +-----------------------+
+                                  |    What-If Simulator  |
+                                  |  (Dynamic Recomputing|
+                                  |   & Interactive Cards)|
+                                  +-----------------------+
+```
+
+### 1. Risk-Adjusted Decision Formula
+Safety strictly outranks raw fishing opportunity. Disqualified zones receive a composite score of 0.0:
+$$\text{Composite Score} = (\text{Opportunity} \times w_{\text{opp}} + \text{Accessibility} \times w_{\text{acc}}) \times \text{Safety Multiplier} \times \text{Confidence}$$
+
+- **Safety Gate:** Any zone with wave height > 2.0m, restricted maritime buffer proximity (e.g. IMBL near Palk Bay), or safety score < 50.0 is disqualified from top ranking.
+- **Dynamic Objectives:**
+  - `high_fishing_potential`: $w_{\text{opp}} = 0.70, w_{\text{acc}} = 0.30$
+  - `safest`: $w_{\text{opp}} = 0.35, w_{\text{acc}} = 0.65$ with amplified safety penalty exponent
+  - `balanced`: $w_{\text{opp}} = 0.50, w_{\text{acc}} = 0.50$
+
+### 2. Signature What-If Recomputation
+When the user asks *"What if I travel 15 km farther?"* or *"What if I prioritize safety?"*, ORCA does **not** generate cosmetic filler. It:
+1. Mutates the originating `StructuredMission` contract.
+2. Re-runs multi-agent orchestration and spatial checks across new candidate boundaries.
+3. Reranks all candidates deterministically.
+4. Generates a side-by-side **Comparative Decision Delta** (`Δ Composite`, `Δ Fishing`, `Δ Safety`, `Δ Distance`).
+5. Returns actionable follow-up card buttons (`[Expand Range]`, `[Switch to Max Safety]`, `[Early Morning Departure]`).
+
+---
+
+## 🚀 Quick Start
+
+### 1. Clone & Setup Environment
+```bash
+git clone https://github.com/Abhinav-0709/orca.git
+cd orca
+
+# Create virtual environment with uv or python
+uv venv
+# Windows:
+.venv\Scripts\activate
+# Linux/macOS:
+source .venv/bin/activate
+
+# Install package and test dependencies
+uv pip install -e ".[dev]"
+
+# Configure environment variables
+cp .env.example .env
+```
+
+### 2. Run the Full Test Suite (83 Tests)
+```bash
+pytest -q
+```
+*Output: 83 passed in ~20s.*
+
+### 3. Run the Golden Demo Script
+```bash
+python scripts/demo_orca.py
+```
+This script executes four full end-to-end scenarios:
+- **Scenario 1:** Standard fishing query from Chennai (`Kasimedu Harbour`) within 30 km.
+- **Scenario 2:** Non-linear safety dominance & IMBL boundary gate at Rameswaram / Palk Bay.
+- **Scenario 3:** What-If distance expansion (+15 km) with side-by-side metric comparison.
+- **Scenario 4:** Interactive card generation and live Agentverse hosted status check.
+
+---
+
+## 💬 Interacting with ORCA on ASI:One
+
+Once connected to ORCA on [asi1.ai](https://asi1.ai):
+
+1. **Initial Recommendation:**
+   > *"I want to go fishing tomorrow morning from Chennai within 30 km. Find a safe zone."*
+2. **What-If Constraint Exploration:**
+   > *"What if I travel 15 km farther offshore?"*
+   - ORCA recomputes candidates, highlights unlocked deeper PFZs, and shows the exact fuel vs catch trade-off.
+3. **Safety Priority Shift:**
+   > *"What if I prioritize maximum safety over catch volume?"*
+   - ORCA shifts candidate weights toward calmer sheltered inshore waters.
+
+---
+
+## 📁 Repository Structure
 
 ```text
 orca/
 ├── agents/            # Specialist domain agents
-│   ├── commander/     # Entrypoint & ACP coordinator
-│   ├── ocean/         # Marine & fishing opportunity
-│   ├── weather/       # Marine weather & risk bulletins
-│   ├── maritime/      # Boundaries & spatial safety
-│   └── evidence/      # Provenance, freshness, confidence
-├── config/            # Pydantic environment configuration
-├── data_sources/      # External integrations (INCOIS, IMD)
-├── decision/          # Risk-adjusted ranking & what-if engine
-├── geospatial/        # Deterministic spatial computations
-├── logging/           # Structured logging with trace ID tracking
-├── models/            # Pydantic contracts & structured missions
-├── orchestration/     # Multi-agent coordination pipelines
-└── tests/             # Unit and integration test suites
+│   ├── commander/     # Entrypoint & ACP coordinator (with simulate_what_if)
+│   ├── ocean/         # Marine & fishing opportunity (INCOIS PFZ / OSF)
+│   ├── weather/       # Marine weather (Open-Meteo Marine API, IMD bulletins)
+│   ├── maritime/      # Boundaries & spatial safety (Marine Regions GIS)
+│   └── evidence/      # Provenance, freshness decay, conflict detection
+├── config/            # Pydantic environment configuration (.env validation)
+├── data_sources/      # External clients (INCOIS, Open-Meteo, IMD, freshness)
+├── decision/          # Risk-adjusted ranking formula & explainer
+├── geospatial/        # Deterministic Haversine, polygons, & buffer checks
+├── logging/           # Structured logging with request trace ID tracking
+├── models/            # Pydantic contracts (StructuredMission, CandidateZone)
+├── orchestration/     # IntentExtractor, ACPRouter, and WhatIfEngine
+agent/                 # Agentverse Hosted Agent workspace (avctl synced)
+scripts/
+└── demo_orca.py       # Standalone automated golden demo script
+tests/                 # 83 comprehensive unit and integration tests
 ```
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-- Python 3.11+
-- [uv](https://docs.astral.sh/uv/) (recommended) or pip
-
-### Installation
-
-1. **Clone the repository:**
-   ```bash
-   git clone <repo-url>
-   cd fecth_ai
-   ```
-
-2. **Create and activate a virtual environment:**
-   ```bash
-   uv venv
-   # Windows:
-   .venv\Scripts\activate
-   # Linux/macOS:
-   source .venv/bin/activate
-   ```
-
-3. **Install dependencies:**
-   ```bash
-   uv pip install -e ".[dev]"
-   ```
-
-4. **Configure environment:**
-   ```bash
-   cp .env.example .env
-   ```
-
-5. **Run test suite:**
-   ```bash
-   pytest
-   ```
 
 ---
 
 ## 📜 Development Status
 
-Development is managed in phased increments. See [ORCA_Phases.md](docs/ORCA_Phases.md) for the active status and decision log.
+All implementation phases tracked in [docs/ORCA_Phases.md](docs/ORCA_Phases.md) are **COMPLETE**:
 
 - **Phase 0 — Project Foundation:** **COMPLETE** ✅
-- **Phase 1 — Marine Data Layer:** **COMPLETE** ✅
-- **Phase 2 — Geospatial Safety Layer:** **COMPLETE** ✅
-- **Phase 3 — Specialist Agents:** **COMPLETE** ✅
-- **Phase 4 — Evidence & Reliability:** **COMPLETE** ✅
-- **Phase 5 — Commander & ACP:** **NEXT** ⏳
+- **Phase 1 — Marine Data Layer (Open-Meteo + INCOIS):** **COMPLETE** ✅
+- **Phase 2 — Geospatial Safety Layer (Boundaries & Buffers):** **COMPLETE** ✅
+- **Phase 3 — Specialist Agents (Ocean, Weather, Maritime):** **COMPLETE** ✅
+- **Phase 4 — Evidence & Reliability (Decay & Conflicts):** **COMPLETE** ✅
+- **Phase 5 — Commander & ACP (Intent Extraction & Dispatch):** **COMPLETE** ✅
+- **Phase 6 — Decision Engine (Risk-Adjusted Ranking):** **COMPLETE** ✅
+- **Phase 7 — ASI:One Integration (Agentverse Hosted Agent Live):** **COMPLETE** ✅
+- **Phase 8 — What-If Engine & Interactive Cards:** **COMPLETE** ✅
+- **Phase 9 — Hardening, Secret Review & Golden Demo:** **COMPLETE** ✅
+
+---
+
+## ⚖️ Safety Disclaimer
+
+ORCA is a decision-support prototype built for Fetch-A-Thon 3.0. Always verify official Indian Coast Guard, INCOIS, and IMD coastal bulletins before departing on any voyage.

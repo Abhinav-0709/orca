@@ -28,6 +28,11 @@ class TimeWindow(BaseModel):
             raise ValueError(f"TimeWindow end ({self.end}) cannot precede start ({self.start})")
         return self
 
+    @property
+    def duration_hours(self) -> float:
+        """Operational duration in hours."""
+        return (self.end - self.start).total_seconds() / 3600.0
+
 
 class StructuredMission(BaseModel):
     """Contract between user intent and specialist agents."""

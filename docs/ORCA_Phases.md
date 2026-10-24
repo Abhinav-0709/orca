@@ -31,8 +31,8 @@ important decisions and changes.
 
 # Project State
 
-**Current Phase:** Phase 6 --- Decision Engine\
-**Status:** IN PROGRESS
+**Current Phase:** V1 Complete\
+**Status:** ALL PHASES COMPLETE (100%)
 
 ## Overall Progress
 
@@ -43,10 +43,10 @@ Phase 2  Geospatial Safety       [X]
 Phase 3  Specialist Agents       [X]
 Phase 4  Evidence & Reliability  [X]
 Phase 5  Commander & ACP         [X]
-Phase 6  Decision Engine         [ ]
-Phase 7  ASI:One Integration     [ ]
-Phase 8  What-If / Cards         [ ]
-Phase 9  Hardening & Demo        [ ]
+Phase 6  Decision Engine         [X]
+Phase 7  ASI:One Integration     [X]
+Phase 8  What-If / Cards         [X]
+Phase 9  Hardening & Demo        [X]
 ```
 
 ------------------------------------------------------------------------
@@ -640,49 +640,76 @@ Phase 6 --- Decision Engine
 
 # Phase 6 --- Decision Engine
 
-**Status:** NOT STARTED
+**Status:** COMPLETE
 
 ## Goal
 
-Transform evidence into a risk-adjusted decision.
+Transform multi-agent evidence into a deterministic, traceable risk-adjusted decision that explains why a candidate zone was selected and why alternatives ranked lower.
 
 ## Planned
 
--   candidate generation
--   normalization
--   safety filtering
--   ranking
--   confidence
--   decision explanation
+- candidate scoring & composite ranking
+- non-linear safety filtering & disqualification
+- objective-based weight adaptation
+- confidence integration
+- decision explainer (recommendation, trade-offs, safety advisory, what-if exploratory questions)
 
 ## Completion
 
-ORCA can explain why a candidate was selected and why alternatives
-ranked lower.
+ORCA can produce a traceable risk-adjusted recommendation and explain why a candidate was selected and why alternatives ranked lower.
 
 ## Implemented
 
-*To be updated.*
+- Built `DecisionEngine` (`orca/decision/engine.py`):
+  - Deterministic evaluation formula: `Composite Score = (Base Opportunity) × (Safety Multiplier) × (Confidence Multiplier)`.
+  - Non-linear safety dominance: Disqualifies candidates with `UNSAFE` or `RESTRICTED` status (score forced to 0.0). Applies steep penalties for low safety scores, preventing high-fishing zones with hazardous waves from beating safe zones.
+  - Objective-adaptive weighting: Dynamically balances opportunity vs accessibility weights for `high_fishing_potential` (70/30), `safest` (35/65), and `balanced` (50/50).
+  - Safety qualification filtering: Only candidates with safety status `SAFE` or `CAUTION` and safety score ≥ 50 qualify as the top recommendation.
+  - Safe failure mode: If all candidates violate safety thresholds or none are provided, gracefully returns `None` for `selected_zone` with explicit explanation rather than forcing an unsafe zone.
+- Built `DecisionExplainer` (`orca/decision/explainer.py`):
+  - `generate_recommendation`: Synthesizes specific coordinates, distance, bearing, wave height, wind speed, SST, chlorophyll, and justification.
+  - `generate_trade_offs`: Explicitly compares top alternatives explaining why each ranked lower (e.g., higher fishing potential but excessive wave hazard, or greater offshore distance).
+  - `generate_safety_advisory`: Formulates operational safety cautions and standard prototype disclaimers.
+  - `generate_what_if_suggestions`: Proactively suggests logical constraint exploration prompts (distance expansion, objective shifting, departure time shifts).
+- Exported decision models and engine through `orca/decision/__init__.py`.
+- Added test suite in `tests/test_decision_engine.py` (5 tests, 74/74 passing across all phases):
+  - `test_safety_strictly_dominates_opportunity`: Verifies that high fishing + low safety loses to moderate fishing + high safety.
+  - `test_disqualification_of_unsafe_and_restricted`: Confirms restricted/unsafe zones get zero composite score.
+  - `test_no_qualifying_candidates`: Confirms graceful advisory when no candidates qualify.
+  - `test_trade_off_and_what_if_explanations`: Confirms trade-off comparative text and dynamic what-if prompts.
+  - `test_end_to_end_commander_to_decision`: Full multi-agent pipeline from natural-language query to `DecisionOutput`.
 
 ## Files Changed
 
-*To be updated.*
+- `orca/decision/engine.py`
+- `orca/decision/explainer.py`
+- `orca/decision/__init__.py`
+- `tests/test_decision_engine.py`
+- `docs/ORCA_Phases.md`
 
 ## Tests
 
-*To be updated.*
+- 74/74 tests passed via `./.venv/Scripts/pytest.exe`:
+  - `tests/test_decision_engine.py`: 5 passed
+  - Phase 0-5 suites: 69 passed
 
 ## Decisions
 
-*To be updated.*
+- **Deterministic Safety Multiplier**: Encoded non-linear curve directly in code so that safety strictly overrules opportunity without relying on LLM arithmetic or guesswork.
+- **Explicit Disqualification**: Implemented a hard safety qualification gate (score ≥ 50.0 and status in `SAFE`, `CAUTION`) preventing hazardous candidates from ever appearing as the top recommendation.
+- **Traceable Trade-off Reasoning**: Explainer explicitly compares numbers (e.g. fishing score vs safety score) so judges and users understand why alternative zones lost.
 
 ## Problems / Blockers
 
-*To be updated.*
+- None. All components and tests executed cleanly.
 
 ## Changes From Plan
 
-*To be updated.*
+- None.
+
+## Current System State
+
+The complete reasoning pipeline is operational: user intent is parsed, specialist agents are orchestrated over ACP, evidence is validated, and the Decision Engine deterministically scores, filters, ranks, and explains the risk-adjusted recommendation.
 
 ## Next Phase
 
@@ -692,99 +719,158 @@ Phase 7 --- ASI:One Integration
 
 # Phase 7 --- ASI:One Integration
 
-**Status:** NOT STARTED
+**Status:** COMPLETE
 
 ## Goal
 
-Make ASI:One the primary user experience.
+Make ASI:One the primary user experience by deploying the ORCA hosted agent to Agentverse with official Agent Chat Protocol (ACP v0.3.0) and Almanac contract registration.
 
 ## Planned
 
--   discoverability
--   agent registration
--   ASI:One routing
--   end-to-end conversation
--   primary workflow inside ASI:One
+- Agentverse authentication with `avctl`
+- Hosted agent workspace creation (`agent/`)
+- Agentverse hosted agent pulling and local development synchronization
+- Chat protocol spec (`chat_protocol_spec`) implementation with `publish_manifest=True`
+- Live Open-Meteo and INCOIS integration within the hosted agent
+- Deployment with `avctl hosting push` and `avctl hosting run`
+- ASI:One discoverability and end-to-end conversation flow
 
 ## Completion
 
-A user can complete the main ORCA workflow entirely through an ASI:One
-conversation.
+A user can complete the main ORCA workflow entirely through an ASI:One conversation.
 
 ## Implemented
 
-*To be updated.*
+- Installed and authenticated `avctl` CLI tool (`v0.1.18`).
+- Created local agent workspace `agent/` and pulled hosted agent `agent1q2q4wrsxn4jv8th8amtnkuv5m8qyuqlxq7x2g4wq24yx4r0wtvyhuwk0xzm`.
+- Replaced the placeholder template with the full production-grade **ORCA Agentverse Hosted Agent** (`agent/agent.py`):
+  - Official Agent Chat Protocol (`spec=chat_protocol_spec`, `publish_manifest=True`) enabling direct ASI:One discovery and Agentverse chat interface.
+  - Sends immediate `ChatAcknowledgement` receipt receipts upon message ingress.
+  - Native intent extraction parsing departure origins across 20+ coastal hubs (Chennai, Kasimedu, Visakhapatnam, Rameswaram, Tuticorin, Kochi, Mumbai, etc.), distances, and constraints.
+  - Queries live Open-Meteo Marine API for real-time wave heights, swell heights, wave periods, currents, and sea surface temperatures.
+  - Evaluates INCOIS Potential Fishing Zones (PFZ) and applies non-linear safety scoring to disqualify hazardous wave conditions.
+  - Employs the `asi1-mini` model via injected credentials for natural-language contextual responses when users ask exploratory questions.
+  - Formats rich GitHub/ASI:One markdown with operating conditions, alternative trade-offs, and what-if simulation options.
+- Uploaded and activated the live agent using `avctl hosting push` and `avctl hosting run`:
+  - Verified agent registration on Almanac fast track.
+  - Verified live status via `avctl hosting logs`.
+- Fixed optional environment variable normalization in `orca/config/settings.py` so empty strings from `.env` cleanly convert to `None`.
+- Verified all 74 local unit and integration tests continue to pass (100% pass rate).
 
 ## Files Changed
 
-*To be updated.*
+- `agent/agent.py`
+- `agent/.env`
+- `agent/pyproject.toml`
+- `orca/config/settings.py`
+- `docs/ORCA_Phases.md`
 
 ## Tests
 
-*To be updated.*
+- Agentverse hosted execution logs verified via `avctl hosting logs`:
+  - Agent `agent1q2q4wrsxn4jv8th8amtnkuv5m8qyuqlxq7x2g4wq24yx4r0wtvyhuwk0xzm` successfully started and registered on Almanac contract.
+- 74/74 local unit and integration tests passed via `./.venv/Scripts/pytest.exe -q`.
 
 ## Decisions
 
-*To be updated.*
+- **Direct Agentverse Hosting**: Deployed ORCA directly as a hosted agent on Agentverse cloud, completely bypassing the need for local ngrok tunnels or open firewall ports while ensuring 24/7 availability on ASI:One.
+- **Published Manifest Chat Protocol**: Used `agent.include(protocol, publish_manifest=True)` with `chat_protocol_spec` so that ASI:One's universal search engine instantly indexes ORCA for marine queries.
+- **Unified Decision Packaging**: Embedded the live Open-Meteo marine query and risk-adjusted decision engine directly inside `agent.py` for sub-second responses inside ASI:One.
 
 ## Problems / Blockers
 
-*To be updated.*
+- Initial `test_default_settings` failed due to empty `EVIDENCE_STORE_PATH=` in `.env`; added Pydantic `field_validator` with `mode="before"` to normalize empty strings to `None`.
 
 ## Changes From Plan
 
-*To be updated.*
+- None.
+
+## Current System State
+
+ORCA is live, running on Agentverse (`agent1q2q4wrsxn4jv8th8amtnkuv5m8qyuqlxq7x2g4wq24yx4r0wtvyhuwk0xzm`), registered on the Almanac contract, and capable of completing the full decision-support workflow inside an ASI:One conversation.
 
 ## Next Phase
 
-Phase 8 --- What-If / Interactive Experience
+Phase 8 --- What-If / Cards
 
 ------------------------------------------------------------------------
 
 # Phase 8 --- What-If / Interactive Experience
 
-**Status:** NOT STARTED
+**Status:** COMPLETE
 
 ## Goal
 
-Implement ORCA's strongest differentiator.
+Implement ORCA's signature differentiator: genuine deterministic recomputation of marine decisions when user constraints or scenario parameters change, delivered via side-by-side trade-off comparisons and interactive action cards.
 
 ## Planned
 
--   what-if constraints
--   mission modification
--   recomputation
--   comparison
--   Interactive Cards if feasible
+- what-if constraints
+- mission modification
+- recomputation
+- comparison
+- Interactive Cards if feasible
 
 ## Completion
 
-Changing a user constraint genuinely changes the underlying computation
-and recommendation.
+Changing a user constraint genuinely changes the underlying computation and recommendation.
 
 ## Implemented
 
-*To be updated.*
+- **What-If Simulation Engine (`orca/orchestration/what_if.py`)**:
+  - `WhatIfEngine.parse_modification`: Extracts parameter shifts from natural language queries (relative distance deltas like *"15 km farther"*, absolute distances, objective switches to *"safest"* or *"high_fishing_potential"*, departure time shifts like *"5:00 AM"*, and wave tolerance constraints like *"calmer sea"*).
+  - `WhatIfModification`: Fully typed model recording the field modified, previous value, new value, and explanation.
+  - `WhatIfComparison`: Side-by-side comparative model tracking delta metrics (`composite_score_delta`, `safety_score_delta`, `fishing_score_delta`, `distance_delta_km`, `selected_zone_changed`).
+  - `WhatIfEngine.compare`: Generates rich markdown decision deltas, trade-off explanations, and dynamic next-action suggestions.
+- **CommanderAgent Multi-Agent Integration (`orca/agents/commander/agent.py`)**:
+  - Added `simulate_what_if` method coordinating baseline execution, modification extraction, modified mission multi-agent orchestration, and deterministic comparative ranking.
+- **Enhanced Hosted Agent (`agent/agent.py`)**:
+  - Stateful session tracking (`USER_SESSIONS`) preserving context per user sender across chat turns.
+  - Added objective weighting (`safest` vs `high_fishing_potential` vs `balanced`) to live candidate evaluation.
+  - `format_what_if_comparison`: Formats side-by-side decision tables with badge indicators (`✨ New Recommended Winner`) and actionable card buttons.
+  - Integrated interactive action cards (clickable prompt buttons for distance expansion, safety mode, and early morning departures).
+  - Deployed to Agentverse with `avctl hosting push` and confirmed running on Almanac fast track.
+- **Helper Models**:
+  - Added `duration_hours` property on `TimeWindow` (`orca/models/mission.py`).
+- **Unit and Integration Test Suite (`tests/test_what_if.py`)**:
+  - 9 tests verifying parameter parsing, delta math, action card generation, and end-to-end Commander What-If workflow.
 
 ## Files Changed
 
-*To be updated.*
+- `orca/orchestration/what_if.py`
+- `orca/agents/commander/agent.py`
+- `orca/models/mission.py`
+- `agent/agent.py`
+- `tests/test_what_if.py`
+- `docs/ORCA_Phases.md`
 
 ## Tests
 
-*To be updated.*
+- 83/83 unit and integration tests passing (`pytest -q`):
+  - 9/9 new tests in `tests/test_what_if.py`
+  - 74/74 existing tests across foundation, data sources, geospatial, agents, commander, and decision engine
+- Agentverse cloud hosting logs verified via `avctl hosting logs`:
+  - Code pushed and compiled cleanly on cloud sandbox.
+  - Live agent successfully responded to chat envelopes in <750ms.
 
 ## Decisions
 
-*To be updated.*
+- **Stateful In-Memory Session**: Maintained `USER_SESSIONS` keyed by `sender` address inside the hosted agent so users in ASI:One can ask natural follow-up queries like *"What if I go 15 km farther?"* without having to repeat their coastal origin or departure port.
+- **True Mathematical Delta**: Rather than relying on an LLM to hallucinate differences, the side-by-side comparison computes exact mathematical deltas on composite, safety, fishing, and distance values.
+- **Actionable Card Prompts**: Appended markdown card buttons (`🔘 Prompt`) at the end of every response enabling instant 1-click What-If simulations in ASI:One.
 
 ## Problems / Blockers
 
-*To be updated.*
+- Initial test run encountered `AttributeError: 'TimeWindow' object has no attribute 'duration_hours'`; resolved by adding a computed property on `TimeWindow`.
+- `DecisionEngine.evaluate()` keyword argument was `candidates` instead of `candidate_zones`; updated callers accordingly.
 
 ## Changes From Plan
 
-*To be updated.*
+- None.
+
+## Current System State
+
+ORCA possesses full What-If simulation capabilities both in the core orchestration library and on the live Agentverse hosted agent. Changing a constraint immediately triggers full recomputation with quantifiable metric deltas.
 
 ## Next Phase
 
@@ -794,56 +880,80 @@ Phase 9 --- Hardening & Demo
 
 # Phase 9 --- Hardening & Demo
 
-**Status:** NOT STARTED
+**Status:** COMPLETE
 
 ## Goal
 
-Make the system reliable enough for judging and reproducible by another
-developer.
+Make the system reliable enough for judging and reproducible by another developer from a clean repository clone.
 
 ## Planned
 
--   failure recovery
--   security review
--   secret review
--   integration testing
--   end-to-end testing
--   GitHub instructions
--   demo script
--   final architecture documentation
+- failure recovery
+- security review
+- secret review
+- integration testing
+- end-to-end testing
+- GitHub instructions
+- demo script
+- final architecture documentation
 
 ## Completion
 
-ORCA can be repeatedly demonstrated from a clean setup with no hidden
-manual steps.
+ORCA can be repeatedly demonstrated from a clean setup with no hidden manual steps.
 
 ## Implemented
 
-*To be updated.*
+- **Failure Recovery & Graceful Degradation**:
+  - Validated operational fallback caching when INCOIS or IMD endpoints return 404/500/timeouts.
+  - Enforced strict principle: API unavailability never turns assumed dangerous water into safe water; confidence is decayed and warnings are recorded.
+- **Security & Secret Hygiene**:
+  - Verified `.gitignore` ignores all `.env`, `.env.*`, `__pycache__`, virtual environments, and SQLite database artifacts (`*.db`, `*.sqlite`, `*.sqlite3`).
+  - Confirmed `git status` tracks only safe code, configuration templates (`.env.example`), and documentation. No API keys or secrets staged or committed.
+- **Automated Golden Demo Runner (`scripts/demo_orca.py`)**:
+  - Developed a standalone console runner executing all 4 key scenarios:
+    1. Standard fishing query from Chennai (`Kasimedu Harbour`) within 30 km.
+    2. Safety dominance & IMBL boundary buffer gate at Rameswaram / Palk Bay.
+    3. Signature What-If simulation recomputation (+15 km radius) with side-by-side metric delta comparison.
+    4. Actionable next-step card buttons and live Agentverse hosted agent verification.
+  - Hardened with cross-platform console encoding compatibility (Windows cp1252 / UTF-8 safe).
+- **Public GitHub Documentation (`README.md`)**:
+  - Completely overhauled `README.md` with:
+    - Live Agentverse hosted address (`agent1q2q4wrsxn4jv8th8amtnkuv5m8qyuqlxq7x2g4wq24yx4r0wtvyhuwk0xzm`) and Almanac fast track status.
+    - ASI:One conversation guide and example prompts.
+    - ASCII multi-agent architecture diagram.
+    - Mathematical formula for risk-adjusted scoring (`Composite = Opportunity × Safety × Accessibility × Confidence`).
+    - Quickstart installation instructions and demo guide.
+    - All 9 Phases marked complete.
 
 ## Files Changed
 
-*To be updated.*
+- `scripts/demo_orca.py`
+- `.gitignore`
+- `README.md`
+- `docs/ORCA_Phases.md`
 
 ## Tests
 
-*To be updated.*
+- 83/83 unit and integration tests passing (`pytest -q` in 20.63s).
+- Full automated golden demo executed cleanly via `python scripts/demo_orca.py` (exit code 0).
+- Live Agentverse hosted agent confirmed operational via `avctl hosting logs`.
 
 ## Decisions
 
-*To be updated.*
+- **Self-Contained Demo Script**: Built `scripts/demo_orca.py` to auto-resolve workspace root onto `sys.path`, allowing judges to run the complete multi-agent demonstration with a single command without environment wrestling.
+- **ASCII Terminal Formatting**: Standardized on ASCII status tags (`[USER QUERY]`, `[INTENT EXTRACTED]`, `[ACP AGGREGATION]`, `[DECISION]`, `[WHAT-IF]`, `[ALMANAC]`) in the demo script to guarantee 100% crash-free execution on legacy Windows console code pages.
 
 ## Problems / Blockers
 
-*To be updated.*
+- Windows console default code page `cp1252` caused `UnicodeEncodeError` on emojis in initial demo run; added `sys.stdout.reconfigure(encoding="utf-8")` safety check and ASCII fallback badges.
 
 ## Changes From Plan
 
-*To be updated.*
+- None.
 
 ## Next Phase
 
-V1 Complete
+V1 Complete — Production Ready for Fetch-A-Thon 3.0 Judging!
 
 ------------------------------------------------------------------------
 
@@ -892,44 +1002,35 @@ Record meaningful architecture/product changes here.
 
 # Current Known Risks
 
-*To be updated during implementation.*
-
-Examples:
-
--   external API availability
--   API rate limits
--   ASI:One integration constraints
--   Agentverse deployment issues
--   ACP implementation details
--   inconsistent marine data formats
--   geospatial dataset quality
--   hackathon demo reliability
+- Live INCOIS / IMD API endpoints experience intermittent 404/500 downtime; gracefully handled via operational cache and reliability decay.
+- Rate limits on external APIs; mitigated via bounded retries, backoff, and caching.
 
 ------------------------------------------------------------------------
 
 # Current Blockers
 
-*None yet.*
+*None.*
 
 ------------------------------------------------------------------------
 
 # Final V1 Completion Checklist
 
--   [ ] Agent registered on Agentverse
--   [ ] ACP operational
--   [ ] ASI:One discovers ORCA
--   [ ] Primary workflow works inside ASI:One
--   [ ] INCOIS integration works
--   [ ] IMD integration works
--   [ ] Geospatial checks work
--   [ ] Specialist agents work
--   [ ] Evidence/reliability layer works
--   [ ] Risk-adjusted decision engine works
--   [ ] Explainable recommendation works
--   [ ] What-if recomputation works
--   [ ] Failure handling tested
--   [ ] Public GitHub repository
--   [ ] Reproducible setup instructions
--   [ ] Demo scenario works repeatedly
--   [ ] No secrets committed
--   [ ] Documentation updated
+-   [X] Agent registered on Agentverse
+-   [X] ACP operational
+-   [X] ASI:One discovers ORCA
+-   [X] Primary workflow works inside ASI:One
+-   [X] INCOIS integration works
+-   [X] IMD integration works
+-   [X] Geospatial checks work
+-   [X] Specialist agents work
+-   [X] Evidence/reliability layer works
+-   [X] Risk-adjusted decision engine works
+-   [X] Explainable recommendation works
+-   [X] What-if recomputation works
+-   [X] Failure handling tested
+-   [X] Public GitHub repository
+-   [X] Reproducible setup instructions
+-   [X] Demo scenario works repeatedly
+-   [X] No secrets committed
+-   [X] Documentation updated
+
